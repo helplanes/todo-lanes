@@ -3,6 +3,8 @@ from discord.ext import commands, tasks
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timedelta
+from threading import Thread
+from flask import Flask
 
 # Load token from .env
 load_dotenv()
@@ -11,7 +13,8 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 # Set up bot with message content intent
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix='.', intents=intents, help_command=None)  # Disable default help
+bot = commands.Bot(command_prefix='.', intents=intents,
+                   help_command=None)  # Disable default help
 
 # Per-channel task tracking
 todo_lists = {}  # {channel_id: [task1, task2, ...]}
@@ -63,7 +66,7 @@ async def done(ctx, *, arg):
     if channel_id not in todo_lists or not todo_lists[channel_id]:
         await ctx.send("📭 No tasks to mark as completed.")
         return
-    
+
     # Check if "all" is specified
     if arg.strip().lower() == "all":
         # Mark all tasks as completed
@@ -71,7 +74,7 @@ async def done(ctx, *, arg):
         await ctx.send("✅ All tasks marked as completed!")
         await show_list(ctx)
         return
-    
+
     # Otherwise, try to mark a specific task as completed
     if arg.strip().isdigit():
         index = int(arg.strip()) - 1
@@ -84,13 +87,14 @@ async def done(ctx, *, arg):
             await ctx.send("⚠️ Invalid task number.")
     else:
         await ctx.send("⚠️ Please specify a task number or 'all'.")
-    
+
     await show_list(ctx)
 
 
 # Command: .list
 @bot.command(name='list')
-async def show_list(ctx):  # Function renamed to avoid conflict with built-in list
+async def show_list(
+        ctx):  # Function renamed to avoid conflict with built-in list
     channel_id = ctx.channel.id
     if channel_id not in todo_lists or not todo_lists[channel_id]:
         await ctx.send("📭 No tasks for today. Add some using `.todo`!")
@@ -108,34 +112,44 @@ async def show_list(ctx):  # Function renamed to avoid conflict with built-in li
 async def help(ctx):
     help_embed = discord.Embed(
         title="📋 Todo Lanes - Task Manager",
-        description="A simple task manager for your Discord channel. Tasks auto-reset every 24 hours.",
-        color=0x3498db
-    )
-    
-    help_embed.add_field(
-        name="📝 Adding Tasks",
-        value="`.todo [task]` - Add a new task\n"
-              "Example: `.todo Buy milk`\n"
-              "You can add multiple tasks separated by commas\n"
-              "Example: `.todo Buy milk, Call mom, Fix bug`",
-        inline=False
-    )
-    
+        description=
+        "A simple task manager for your Discord channel. Tasks auto-reset every 24 hours.",
+        color=0x3498db)
+
+    help_embed.add_field(name="📝 Adding Tasks",
+                         value="`.todo [task]` - Add a new task\n"
+                         "Example: `.todo Buy milk`\n"
+                         "You can add multiple tasks separated by commas\n"
+                         "Example: `.todo Buy milk, Call mom, Fix bug`",
+                         inline=False)
+
     help_embed.add_field(
         name="✅ Completing Tasks",
         value="`.done [number]` - Mark a specific task as completed\n"
-              "Example: `.done 1` (marks task #1 as completed)\n"
-              "`.done all` - Mark all tasks as completed",
-        inline=False
-    )
-    
+        "Example: `.done 1` (marks task #1 as completed)\n"
+        "`.done all` - Mark all tasks as completed",
+        inline=False)
+
     help_embed.add_field(
         name="👀 Viewing Tasks",
         value="`.list` - Display all your current tasks with their status",
-        inline=False
-    )
-    
+        inline=False)
+
     await ctx.send(embed=help_embed)
 
+
+app = Flask('')
+
+
+@app.route('/')
+def home():
+    return "Bot is alive!"
+
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+
+Thread(target=run).start()
 
 bot.run(TOKEN)
